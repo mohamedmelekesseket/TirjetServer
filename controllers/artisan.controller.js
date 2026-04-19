@@ -4,7 +4,6 @@ import User from "../models/User.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
-// helper — upload file to cloudinary then remove tmp file
 const uploadImage = async (filePath) => {
   const result = await cloudinary.uploader.upload(filePath, {
     folder: "artisana/artisans",
@@ -14,17 +13,12 @@ const uploadImage = async (filePath) => {
   return result.secure_url;
 };
 
-// ─────────────────────────────────────────
-// @desc    Get all artisan profiles
-// @route   GET /api/artisans
-// @access  Admin
-// ─────────────────────────────────────────
 export const getAllArtisans = async (req, res) => {
   try {
     const { approved, page = 1, limit = 20 } = req.query;
 
     const filter = {};
-    if (approved === "true")  filter.isApproved = true;
+    if (approved === "true") filter.isApproved = true;
     if (approved === "false") filter.isApproved = false;
 
     const total = await ArtisanProfile.countDocuments(filter);
@@ -37,7 +31,7 @@ export const getAllArtisans = async (req, res) => {
     res.json({
       artisans,
       total,
-      page:  Number(page),
+      page: Number(page),
       pages: Math.ceil(total / limit),
     });
   } catch (error) {
@@ -45,12 +39,6 @@ export const getAllArtisans = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────
-// @desc    Get a single artisan profile by user ID
-// @route   GET /api/artisans/:userId
-// @access  Public
-// ─────────────────────────────────────────
-// artisan.controller.js
 export const getArtisanByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -59,17 +47,13 @@ export const getArtisanByUserId = async (req, res) => {
       .populate("user", "-password")
       .lean();
 
-    // ── No ArtisanProfile yet — build a minimal one from the User doc ──
     if (!artisan) {
-      const user = await User.findById(userId)
-        .select("-password")
-        .lean();
+      const user = await User.findById(userId).select("-password").lean();
 
       if (!user) {
         return res.status(404).json({ message: "Artisan introuvable." });
       }
 
-      // Synthetic profile so the frontend still renders
       artisan = {
         _id: null,
         user,
@@ -97,26 +81,9 @@ export const getArtisanByUserId = async (req, res) => {
   } catch (error) {
     console.error("[getArtisanByUserId]", error);
     return res.status(500).json({ message: "Erreur serveur." });
-export const getArtisanByUserId = async (req, res) => {
-  try {
-    const artisan = await ArtisanProfile.findOne({ user: req.params.userId }).populate(
-      "user",
-      "name email image createdAt"
-    );
-
-    if (!artisan) return res.status(404).json({ message: "Artisan profile not found" });
-
-    res.json(artisan);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
   }
 };
 
-// ─────────────────────────────────────────
-// @desc    Get own artisan profile
-// @route   GET /api/artisans/me
-// @access  Private (vendor)
-// ─────────────────────────────────────────
 export const getMyProfile = async (req, res) => {
   try {
     const artisan = await ArtisanProfile.findOne({ user: req.user._id }).populate(
@@ -132,25 +99,12 @@ export const getMyProfile = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────
-// @desc    Create or update own artisan profile
-// @route   PUT /api/artisans/me
-// @access  Private (vendor)
-// ─────────────────────────────────────────
-// artisan.controller.js — upsertMyProfile
 export const upsertMyProfile = async (req, res) => {
   try {
-    const { phone, region, specialite, description, instagram, website } = req.body; // ← add fields
+    const { phone, region, specialite, description, instagram, website } = req.body;
 
-    const update = { phone, region, specialite, description, instagram, website }; // ← include them
+    const update = { phone, region, specialite, description, instagram, website };
 
-export const upsertMyProfile = async (req, res) => {
-  try {
-    const { phone, region, description } = req.body;
-
-    const update = { phone, region, description };
-
-    // Upload new images if provided
     if (req.files && req.files.length > 0) {
       const urls = await Promise.all(req.files.map((f) => uploadImage(f.path)));
       update.images = urls;
@@ -168,11 +122,6 @@ export const upsertMyProfile = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────
-// @desc    Approve an artisan (set isApproved = true, role = vendor)
-// @route   PATCH /api/artisans/:id/approve
-// @access  Admin
-// ─────────────────────────────────────────
 export const approveArtisan = async (req, res) => {
   try {
     const artisan = await ArtisanProfile.findById(req.params.id);
@@ -181,7 +130,6 @@ export const approveArtisan = async (req, res) => {
     artisan.isApproved = true;
     await artisan.save();
 
-    // Promote user to vendor role and ensure active status
     await User.findByIdAndUpdate(artisan.user, { role: "vendor", status: "active" });
 
     res.json({ message: "Artisan approved successfully", artisan });
@@ -190,11 +138,6 @@ export const approveArtisan = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────
-// @desc    Reject / suspend an artisan
-// @route   PATCH /api/artisans/:id/reject
-// @access  Admin
-// ─────────────────────────────────────────
 export const rejectArtisan = async (req, res) => {
   try {
     const artisan = await ArtisanProfile.findById(req.params.id);
@@ -211,11 +154,6 @@ export const rejectArtisan = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────
-// @desc    Delete an artisan profile
-// @route   DELETE /api/artisans/:id
-// @access  Admin
-// ─────────────────────────────────────────
 export const deleteArtisan = async (req, res) => {
   try {
     const artisan = await ArtisanProfile.findByIdAndDelete(req.params.id);
@@ -227,16 +165,8 @@ export const deleteArtisan = async (req, res) => {
   }
 };
 
-
-
-// ─────────────────────────────────────────
-// @desc    Normal user applies to become artisan
-// @route   POST /api/artisans/apply
-// @access  Private (any logged-in user)
-// ─────────────────────────────────────────
 export const applyAsArtisan = async (req, res) => {
   try {
-    // ✅ was "spécialité" (with accents) — frontend sends "specialite"
     const { phone, region, specialite, description } = req.body;
 
     const existing = await ArtisanProfile.findOne({ user: req.user._id });
@@ -253,7 +183,7 @@ export const applyAsArtisan = async (req, res) => {
       user: req.user._id,
       phone,
       region,
-      specialite,       // ✅ fixed
+      specialite,
       description,
       images,
       isApproved: false,
