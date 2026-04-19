@@ -161,7 +161,6 @@ export const updateMyProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { name, image },
-      { returnDocument: "after", runValidators: true }
       { new: true, runValidators: true }
     ).select("-password");
 
