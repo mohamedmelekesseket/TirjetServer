@@ -1,21 +1,17 @@
 import express from "express";
 import dotenv from "dotenv";
 dotenv.config();
-console.log("MONGO_URI:", process.env.MONGO_URI);
 import cors from "cors";
 import connectDB from "./config/db.js";
-// console.log("ENV FROM SERVER:", process.env.CLOUDINARY_API_KEY);
-import connectDB from "./config/db.js";
-console.log("ENV FROM SERVER:", process.env.CLOUDINARY_API_KEY);
 import artisanRoutes from "./routes/artisan.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import commentRoutes from "./routes/commentRoutes.js";
-import favouriteRoutes from "./routes/Favourite.routes.js"; // ← ADD THIS
-import categoryRoutes from "./routes/Category.routes.js";   // ← ADD
-import cartRoutes from "./routes/cart.routes.js"; // ← ADD THIS (adjust filename to match yours)
+import favouriteRoutes from "./routes/Favourite.routes.js";
+import categoryRoutes from "./routes/Category.routes.js";
+import cartRoutes from "./routes/cart.routes.js";
 
 connectDB();
 
@@ -53,16 +49,15 @@ app.get("/", (req, res) => {
   res.send("API running...");
 });
 
-// Routes
 app.use("/api/artisans", artisanRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/products/:id/comments", commentRoutes);
-app.use("/api/favourites", favouriteRoutes); // ← ADD THIS
-app.use("/api/categories", categoryRoutes);                  // ← ADD
-app.use("/api/cart", cartRoutes); // ← ADD THIS
+app.use("/api/favourites", favouriteRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/cart", cartRoutes);
 
 const PORT = process.env.PORT || 5000;
 
