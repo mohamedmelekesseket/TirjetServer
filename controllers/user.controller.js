@@ -64,7 +64,7 @@ export const updateUserRole = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
-      { returnDocument: "after" }
+      
       { new: true }
     ).select("-password");
 
@@ -117,7 +117,7 @@ export const updateUserStatus = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { status },
-      { returnDocument: "after" }
+      
       { new: true }
     ).select("-password");
 
