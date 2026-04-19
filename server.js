@@ -5,7 +5,6 @@ console.log("MONGO_URI:", process.env.MONGO_URI);
 import cors from "cors";
 import connectDB from "./config/db.js";
 // console.log("ENV FROM SERVER:", process.env.CLOUDINARY_API_KEY);
-import cors from "cors";
 import connectDB from "./config/db.js";
 console.log("ENV FROM SERVER:", process.env.CLOUDINARY_API_KEY);
 import artisanRoutes from "./routes/artisan.routes.js";
