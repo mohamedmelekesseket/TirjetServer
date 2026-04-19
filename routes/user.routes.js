@@ -1,13 +1,11 @@
 import express from "express";
 import User from "../models/User.js";
-import ArtisanProfile from "../models/ArtisanProfile.js"; // ← add
+import ArtisanProfile from "../models/ArtisanProfile.js";
 import { protect } from "../middlewares/auth.middleware.js";
 import { requireAdmin } from "../middlewares/role.middleware.js";
 
 const router = express.Router();
 
-// GET /api/users
-// GET /api/users  — list all users (Admin)
 router.get("/", protect, requireAdmin, async (req, res) => {
   try {
     const { role, status, page = 1, limit = 20, search } = req.query;
@@ -29,8 +27,6 @@ router.get("/", protect, requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/users/:id
-// GET /api/users/:id  — get a single user (Admin)
 router.get("/:id", protect, requireAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
@@ -41,8 +37,6 @@ router.get("/:id", protect, requireAdmin, async (req, res) => {
   }
 });
 
-// PATCH /api/users/:id/status
-// PATCH /api/users/:id/status  — block / activate (Admin)
 router.patch("/:id/status", protect, requireAdmin, async (req, res) => {
   try {
     const { status } = req.body;
@@ -52,7 +46,6 @@ router.patch("/:id/status", protect, requireAdmin, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { status },
-      { returnDocument: "after" }  // ← fixed
       { new: true }
     ).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -62,24 +55,16 @@ router.patch("/:id/status", protect, requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/users/:id
-// DELETE /api/users/:id  — delete a user (Admin)
 router.delete("/:id", protect, requireAdmin, async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    await ArtisanProfile.findOneAndDelete({ user: req.params.id }); // ← cleanup
+    await ArtisanProfile.findOneAndDelete({ user: req.params.id });
     res.json({ message: "User deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
-
-// PATCH /api/users/:id/role  ← now handles ArtisanProfile
-
-
-// ── Add this route to your existing users.routes.js ──────────────────
-// PATCH /api/users/:id/role  — change user role (Admin)
 
 router.patch("/:id/role", protect, requireAdmin, async (req, res) => {
   try {
@@ -89,7 +74,6 @@ router.patch("/:id/role", protect, requireAdmin, async (req, res) => {
       return res.status(400).json({ message: "Invalid role. Must be: user, vendor, or admin" });
     }
 
-    // Prevent admin from demoting themselves
     if (req.user._id.toString() === req.params.id && role !== "admin") {
       return res.status(403).json({ message: "You cannot change your own role" });
     }
@@ -97,13 +81,11 @@ router.patch("/:id/role", protect, requireAdmin, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
-      { returnDocument: "after" }  // ← fixed
       { new: true }
     ).select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // ── ArtisanProfile sync ──────────────────────────────────────────
     if (role === "vendor") {
       const exists = await ArtisanProfile.findOne({ user: user._id });
       if (!exists) {
