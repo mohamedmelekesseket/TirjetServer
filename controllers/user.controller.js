@@ -1,9 +1,6 @@
 import User from "../models/User.js";
-<<<<<<< HEAD
 import ArtisanProfile from "../models/ArtisanProfile.js";
-=======
 
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
 // ─────────────────────────────────────────
 // @desc    Get all users
 // @route   GET /api/users
@@ -67,16 +64,12 @@ export const updateUserRole = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
-<<<<<<< HEAD
       { returnDocument: "after" }
-=======
       { new: true }
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     ).select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-<<<<<<< HEAD
     // ── ArtisanProfile sync ───────────────────────────────────────────
     try {
       console.log("Role:", role, "| User ID:", user._id); // ← debug
@@ -97,8 +90,6 @@ export const updateUserRole = async (req, res) => {
       console.error("ArtisanProfile sync error:", profileErr.message);
     }
 
-=======
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -126,11 +117,8 @@ export const updateUserStatus = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { status },
-<<<<<<< HEAD
       { returnDocument: "after" }
-=======
       { new: true }
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     ).select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -173,11 +161,8 @@ export const updateMyProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { name, image },
-<<<<<<< HEAD
       { returnDocument: "after", runValidators: true }
-=======
       { new: true, runValidators: true }
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     ).select("-password");
 
     res.json(user);

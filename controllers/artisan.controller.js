@@ -1,8 +1,5 @@
 import ArtisanProfile from "../models/ArtisanProfile.js";
-<<<<<<< HEAD
 import Product from "../models/Product.js";
-=======
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
 import User from "../models/User.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
@@ -53,7 +50,6 @@ export const getAllArtisans = async (req, res) => {
 // @route   GET /api/artisans/:userId
 // @access  Public
 // ─────────────────────────────────────────
-<<<<<<< HEAD
 // artisan.controller.js
 export const getArtisanByUserId = async (req, res) => {
   try {
@@ -101,7 +97,6 @@ export const getArtisanByUserId = async (req, res) => {
   } catch (error) {
     console.error("[getArtisanByUserId]", error);
     return res.status(500).json({ message: "Erreur serveur." });
-=======
 export const getArtisanByUserId = async (req, res) => {
   try {
     const artisan = await ArtisanProfile.findOne({ user: req.params.userId }).populate(
@@ -114,7 +109,6 @@ export const getArtisanByUserId = async (req, res) => {
     res.json(artisan);
   } catch (error) {
     res.status(500).json({ message: error.message });
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
   }
 };
 
@@ -143,7 +137,6 @@ export const getMyProfile = async (req, res) => {
 // @route   PUT /api/artisans/me
 // @access  Private (vendor)
 // ─────────────────────────────────────────
-<<<<<<< HEAD
 // artisan.controller.js — upsertMyProfile
 export const upsertMyProfile = async (req, res) => {
   try {
@@ -151,7 +144,6 @@ export const upsertMyProfile = async (req, res) => {
 
     const update = { phone, region, specialite, description, instagram, website }; // ← include them
 
-=======
 export const upsertMyProfile = async (req, res) => {
   try {
     const { phone, region, description } = req.body;
@@ -159,7 +151,6 @@ export const upsertMyProfile = async (req, res) => {
     const update = { phone, region, description };
 
     // Upload new images if provided
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     if (req.files && req.files.length > 0) {
       const urls = await Promise.all(req.files.map((f) => uploadImage(f.path)));
       update.images = urls;

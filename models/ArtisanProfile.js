@@ -11,12 +11,9 @@ const artisanSchema = new mongoose.Schema(
     region: String,
     specialite: String,
     description: String,
-<<<<<<< HEAD
     instagram: { type: String, default: '' },
     website:   { type: String, default: '' },
-=======
 
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     images: [String], // photos of work
 
     isApproved: {

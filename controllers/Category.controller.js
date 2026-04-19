@@ -817,9 +817,7 @@ const seedCategories = async (req, res) => {
         ],
       },
 
-<<<<<<< HEAD
 
-=======
       // ══════════════════════════════════════════════════════════════════════
       // mainCategory: "art-et-culture"
       // ══════════════════════════════════════════════════════════════════════
@@ -935,7 +933,6 @@ const seedCategories = async (req, res) => {
         description:  "",
         subcategories: [],
       },
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     ];
 
     await Category.deleteMany({});

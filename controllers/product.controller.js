@@ -344,11 +344,8 @@ export const suspendProduct = async (req, res) => {
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
       { isSuspended: suspend, isApproved: !suspend },
-<<<<<<< HEAD
       { returnDocument: "after" }
-=======
       { new: true }
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     );
 
     res.json({
@@ -370,11 +367,8 @@ export const approveProduct = async (req, res) => {
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       { isApproved: true },
-<<<<<<< HEAD
       { returnDocument: "after" }
-=======
       { new: true }
->>>>>>> c702801961d86c6b8bcf35daa24685d65d39ef0d
     );
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json({ message: "Product approved", product });
