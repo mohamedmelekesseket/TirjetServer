@@ -88,6 +88,7 @@ export const getAllProducts = async (req, res) => {
     const total    = await Product.countDocuments(filter);
     const products = await Product.find(filter)
       .populate("artisan", "name email image")
+      .populate("category", "name slug mainCategory")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -106,7 +107,8 @@ export const getAllProducts = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate("artisan", "name email image");
+      .populate("artisan", "name email image")
+      .populate("category", "name slug mainCategory");
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   } catch (error) {
@@ -129,6 +131,7 @@ export const getMyProducts = async (req, res) => {
 
     const total    = await Product.countDocuments(filter);
     const products = await Product.find(filter)
+      .populate("category", "name slug mainCategory")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -317,7 +320,9 @@ export const updateProduct = async (req, res) => {
       req.params.id,
       mongoUpdate,
       { returnDocument: "after", runValidators: true }
-    ).populate("artisan", "name email image");
+    )
+      .populate("artisan", "name email image")
+      .populate("category", "name slug mainCategory");
 
     res.json(updated);
   } catch (error) {

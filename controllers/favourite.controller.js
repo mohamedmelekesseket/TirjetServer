@@ -7,7 +7,11 @@ import Product   from "../models/Product.js";
 export const getFavourites = async (req, res) => {
   try {
     const favs = await Favourite.find({ user: req.user._id })
-      .populate("product", "title description price images category location material stock isApproved")
+      .populate({
+        path: "product",
+        select: "title description price images category location material stock isApproved",
+        populate: { path: "category", select: "name slug mainCategory" },
+      })
       .sort({ createdAt: -1 });
 
     // filter out any whose product was deleted / not approved

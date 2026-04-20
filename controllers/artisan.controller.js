@@ -49,22 +49,27 @@ export const getArtisanByUserId = async (req, res) => {
 
     if (!artisan) {
       const user = await User.findById(userId).select("-password").lean();
-
-      if (!user) {
-        return res.status(404).json({ message: "Artisan introuvable." });
-      }
+      if (!user) return res.status(404).json({ message: "Artisan introuvable." });
 
       artisan = {
         _id: null,
         user,
         phone: null,
         region: null,
+        city: null,
         specialite: null,
         description: null,
         instagram: null,
+        facebook: null,
+        tiktok: null,
         website: null,
+        experience: null,
+        languages: [],
+        tags: [],
         images: [],
         isApproved: false,
+        isFeatured: false,
+        notes: null,
         createdAt: user.createdAt,
       };
     }
@@ -90,9 +95,7 @@ export const getMyProfile = async (req, res) => {
       "user",
       "name email image"
     );
-
     if (!artisan) return res.status(404).json({ message: "Profile not found" });
-
     res.json(artisan);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -101,13 +104,21 @@ export const getMyProfile = async (req, res) => {
 
 export const upsertMyProfile = async (req, res) => {
   try {
-    const { phone, region, specialite, description, instagram, website } = req.body;
+    const {
+      phone, region, city, specialite, description,
+      instagram, facebook, tiktok, website, experience,
+      languages, tags,
+    } = req.body;
 
-    const update = { phone, region, specialite, description, instagram, website };
+    const update = {
+      phone, region, city, specialite, description,
+      instagram, facebook, tiktok, website, experience,
+      languages: Array.isArray(languages) ? languages : languages?.split(",").map((s) => s.trim()),
+      tags: Array.isArray(tags) ? tags : tags?.split(",").map((s) => s.trim()),
+    };
 
     if (req.files && req.files.length > 0) {
-      const urls = await Promise.all(req.files.map((f) => uploadImage(f.path)));
-      update.images = urls;
+      update.images = await Promise.all(req.files.map((f) => uploadImage(f.path)));
     }
 
     const artisan = await ArtisanProfile.findOneAndUpdate(
@@ -129,7 +140,6 @@ export const approveArtisan = async (req, res) => {
 
     artisan.isApproved = true;
     await artisan.save();
-
     await User.findByIdAndUpdate(artisan.user, { role: "vendor", status: "active" });
 
     res.json({ message: "Artisan approved successfully", artisan });
@@ -145,7 +155,6 @@ export const rejectArtisan = async (req, res) => {
 
     artisan.isApproved = false;
     await artisan.save();
-
     await User.findByIdAndUpdate(artisan.user, { status: "blocked" });
 
     res.json({ message: "Artisan rejected/suspended", artisan });
@@ -158,7 +167,6 @@ export const deleteArtisan = async (req, res) => {
   try {
     const artisan = await ArtisanProfile.findByIdAndDelete(req.params.id);
     if (!artisan) return res.status(404).json({ message: "Artisan not found" });
-
     res.json({ message: "Artisan profile deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -167,7 +175,7 @@ export const deleteArtisan = async (req, res) => {
 
 export const applyAsArtisan = async (req, res) => {
   try {
-    const { phone, region, specialite, description } = req.body;
+    const { phone, region, city, specialite, description } = req.body;
 
     const existing = await ArtisanProfile.findOne({ user: req.user._id });
     if (existing) {
@@ -183,6 +191,7 @@ export const applyAsArtisan = async (req, res) => {
       user: req.user._id,
       phone,
       region,
+      city,
       specialite,
       description,
       images,
@@ -190,6 +199,42 @@ export const applyAsArtisan = async (req, res) => {
     });
 
     res.status(201).json({ message: "Application submitted successfully", profile });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAllApprovedArtisans = async (req, res) => {
+  try {
+    const artisans = await ArtisanProfile.find({ isApproved: true })
+      .populate("user", "name image")
+      .sort({ createdAt: -1 });
+    res.json(artisans);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const adminUpdateArtisan = async (req, res) => {
+  try {
+    const FORBIDDEN = ["user", "_id", "__v"];
+    const update = Object.fromEntries(
+      Object.entries(req.body).filter(([k]) => !FORBIDDEN.includes(k))
+    );
+
+    if (req.files && req.files.length > 0) {
+      update.images = await Promise.all(req.files.map((f) => uploadImage(f.path)));
+    }
+
+    const artisan = await ArtisanProfile.findByIdAndUpdate(
+      req.params.id,
+      { $set: update },
+      { new: true, runValidators: false }
+    ).populate("user", "name email image status createdAt");
+
+    if (!artisan) return res.status(404).json({ message: "Artisan not found" });
+
+    res.json(artisan);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
