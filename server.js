@@ -43,12 +43,13 @@ app.use(
   })
 );
 
-app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("API running...");
 });
-
+// In your app.js / server.js — increase limit for base64 image uploads
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/api/artisans", artisanRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);

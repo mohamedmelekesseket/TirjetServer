@@ -1,40 +1,52 @@
 import express from "express";
 import {
+  uploadCategoryImage,
   getCategories,
   getCategoryById,
+  getCategoriesGrouped,
   createCategory,
   updateCategory,
   deleteCategory,
   addSubcategory,
+  updateSubcategory,
   deleteSubcategory,
-  seedCategories,
-  getCategoriesGrouped,
+  addSubSubcategory,
+  updateSubSubcategory,
+  deleteSubSubcategory,
   addLevel4,
+  updateLevel4,
   deleteLevel4,
+  seedCategories,
 } from "../controllers/Category.controller.js";
-
-// import { protect, adminOnly } from "../middlewares/auth.middleware.js";
+import { upload } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
-// Public
-router.get("/", getCategories);
-router.get("/:id", getCategoryById);
+// ── Static paths FIRST — before any :param routes ─────────────────────────────
+router.get("/grouped",       getCategoriesGrouped);
+router.post("/seed/defaults", seedCategories);
+router.post("/upload-image", upload.single("image"), uploadCategoryImage);
 
-// Admin only — uncomment middleware when ready
-router.post("/", /* protect, adminOnly, */ createCategory);
-router.put("/:id", /* protect, adminOnly, */ updateCategory);
-router.delete("/:id", /* protect, adminOnly, */ deleteCategory);
+// ── Root CRUD ─────────────────────────────────────────────────────────────────
+router.get("/",     getCategories);
+router.post("/",    createCategory);
+router.get("/:id",  getCategoryById);
+router.put("/:id",  updateCategory);
+router.delete("/:id", deleteCategory);
 
-// Subcategories
-router.post("/:id/subcategories", /* protect, adminOnly, */ addSubcategory);
-router.delete("/:id/subcategories/:subId", /* protect, adminOnly, */ deleteSubcategory);
+// ── L2 ────────────────────────────────────────────────────────────────────────
+router.post("/:id/subcategories",          addSubcategory);
+router.put("/:id/subcategories/:subId",    updateSubcategory);
+router.delete("/:id/subcategories/:subId", deleteSubcategory);
 
-// Seed default categories (run once)
-router.post("/seed/defaults", /* protect, adminOnly, */ seedCategories);
+// ── L3 ────────────────────────────────────────────────────────────────────────
+router.post("/:id/subcategories/:subId/subcategories",             addSubSubcategory);
+router.put("/:id/subcategories/:subId/subcategories/:subSubId",    updateSubSubcategory);
+router.delete("/:id/subcategories/:subId/subcategories/:subSubId", deleteSubSubcategory);
 
-router.get("/grouped", getCategoriesGrouped);
-router.post("/:id/subcategories/:subId/subcategories/:subSubId/subcategories", addLevel4);
-router.delete("/:id/subcategories/:subId/subcategories/:subSubId/subcategories/:itemId", deleteLevel4);
+// ── L4 ────────────────────────────────────────────────────────────────────────
+router.post("/:id/subcategories/:subId/subcategories/:subSubId/subcategories",             addLevel4);
+router.put("/:id/subcategories/:subId/subcategories/:subSubId/subcategories/:itemId",      updateLevel4);
+router.delete("/:id/subcategories/:subId/subcategories/:subSubId/subcategories/:itemId",   deleteLevel4);
 
 export default router;

@@ -19,21 +19,18 @@ const level4Schema = new mongoose.Schema({
 });
 
 // ─── Level 3 ─────────────────────────────────────────────────────────────────
-// e.g. "Bijoux modernes", "Bijoux traditionnels", "Types de sacs"
 const level3Schema = new mongoose.Schema({
   name:          { type: String, required: true, trim: true },
   slug:          { type: String },
   image:         { type: String, default: "" },
-  subcategories: [level4Schema],
+  subcategories: { type: [level4Schema], default: [] },  // ← explicit default
 });
 
-// ─── Level 2 ─────────────────────────────────────────────────────────────────
-// e.g. "Bijoux", "Sacs", "Chapeaux"
 const level2Schema = new mongoose.Schema({
   name:          { type: String, required: true, trim: true },
   slug:          { type: String },
   image:         { type: String, default: "" },
-  subcategories: [level3Schema],
+  subcategories: { type: [level3Schema], default: [] },  // ← explicit default
 });
 
 // ─── Level 1 — root category ─────────────────────────────────────────────────
@@ -75,22 +72,20 @@ function toSlug(str) {
     .replace(/[^a-z0-9-]/g, "");
 }
 
-categorySchema.pre("save", function (next) {
+// AFTER:
+categorySchema.pre("save", async function () {
   if (this.isModified("name")) this.slug = toSlug(this.name);
 
-  this.subcategories.forEach((l2) => {
+  (this.subcategories ?? []).forEach((l2) => {
     if (!l2.slug) l2.slug = toSlug(l2.name);
 
-    l2.subcategories.forEach((l3) => {
+    (l2.subcategories ?? []).forEach((l3) => {
       if (!l3.slug) l3.slug = toSlug(l3.name);
 
-      l3.subcategories.forEach((l4) => {
+      (l3.subcategories ?? []).forEach((l4) => {
         if (!l4.slug) l4.slug = toSlug(l4.name);
       });
     });
   });
-
-  next();
 });
-
 export default mongoose.model("Category", categorySchema);
