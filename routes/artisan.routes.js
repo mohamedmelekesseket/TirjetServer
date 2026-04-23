@@ -25,7 +25,11 @@ router.get("/", protect, requireAdmin, getAllArtisans);
 
 // Vendor — own profile
 router.get("/me", protect, requireVendor, getMyProfile);
-router.put("/me", protect, requireVendor, upload.array("images", 8), upsertMyProfile);
+// ✅ Already correct in your router — just double-check this is what's running:
+router.put("/me", protect, requireVendor, upload.fields([
+  { name: "profilePhoto", maxCount: 1 },
+  { name: "images", maxCount: 8 },
+]), upsertMyProfile);
 
 // Any logged-in user — apply as artisan (MUST be before /:id)
 router.post("/apply", protect, upload.array("images", 8), applyAsArtisan);

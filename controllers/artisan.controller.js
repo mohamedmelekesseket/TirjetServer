@@ -5,6 +5,8 @@ import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
 const uploadImage = async (filePath) => {
+  if (!filePath) throw new Error("Missing required parameter – file");  // ✅ clearer error
+  
   const result = await cloudinary.uploader.upload(filePath, {
     folder: "artisana/artisans",
     transformation: [{ quality: "auto", fetch_format: "auto" }],
@@ -117,8 +119,18 @@ export const upsertMyProfile = async (req, res) => {
       tags: Array.isArray(tags) ? tags : tags?.split(",").map((s) => s.trim()),
     };
 
-    if (req.files && req.files.length > 0) {
-      update.images = await Promise.all(req.files.map((f) => uploadImage(f.path)));
+    const profileFile = req.files?.profilePhoto?.[0];
+    if (profileFile && profileFile.path) {  // ✅ added && profileFile.path
+      update.profilePhoto = await uploadImage(profileFile.path);
+    }
+
+    const galleryFiles = req.files?.images;
+    if (galleryFiles && galleryFiles.length > 0) {
+      update.images = await Promise.all(
+        galleryFiles
+          .filter(f => f.path)  // ✅ filter out any undefined paths
+          .map(f => uploadImage(f.path))
+      );
     }
 
     const artisan = await ArtisanProfile.findOneAndUpdate(
@@ -132,7 +144,6 @@ export const upsertMyProfile = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 export const approveArtisan = async (req, res) => {
   try {
     const artisan = await ArtisanProfile.findById(req.params.id);

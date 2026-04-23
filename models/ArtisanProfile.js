@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const artisanSchema = new mongoose.Schema(
   {
     user:        { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    profilePhoto: { type: String, default: "" },
     phone:       String,
     region:      String,
     city:        String,

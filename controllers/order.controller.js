@@ -20,15 +20,23 @@ export const checkoutFromCart = async (req, res) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
+    // Auto-remove items whose product was deleted or unpopulated
+    const validItems = cart.items.filter((item) => item.product != null);
+    if (validItems.length === 0) {
+      return res.status(400).json({ message: "All products in your cart are no longer available" });
+    }
+
     let total = 0;
     const resolvedItems = [];
 
-    for (const item of cart.items) {
+    for (const item of validItems) {
       const p = item.product;
-      if (!p || !p.isApproved) throw new Error(`Product "${p?.title}" is not available`);
+
+      if (!p.isApproved) throw new Error(`Product "${p.title}" is not approved yet`);
       if (p.stock < item.quantity) {
         throw new Error(`Not enough stock for "${p.title}" (available: ${p.stock})`);
       }
+
       total += p.price * item.quantity;
       resolvedItems.push({ product: p._id, quantity: item.quantity, price: p.price });
     }
@@ -42,14 +50,12 @@ export const checkoutFromCart = async (req, res) => {
       paymentMethod,
     });
 
-    // Decrement stock
     await Promise.all(
       resolvedItems.map(({ product, quantity }) =>
         Product.findByIdAndUpdate(product, { $inc: { stock: -quantity } })
       )
     );
 
-    // Clear cart
     await Cart.findOneAndDelete({ user: req.user._id });
 
     res.status(201).json(order);
@@ -57,7 +63,6 @@ export const checkoutFromCart = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
-
 // ─────────────────────────────────────────
 // @desc    Get ALL orders (admin overview)
 // @route   GET /api/orders
