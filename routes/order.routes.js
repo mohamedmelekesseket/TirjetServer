@@ -13,7 +13,7 @@ import { protect, adminOnly } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/mine",    protect, getMyOrders);
+  router.get("/mine",    protect, getMyOrders);
 router.get("/artisan", protect, getArtisanOrders);
 router.get("/:id",     protect, getOrderById);
 router.get("/",        protect, adminOnly, getAllOrders);
