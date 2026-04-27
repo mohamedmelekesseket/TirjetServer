@@ -4,15 +4,38 @@ import User from "../models/User.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
-const uploadImage = async (filePath) => {
-  if (!filePath) throw new Error("Missing required parameter – file");  // ✅ clearer error
-  
-  const result = await cloudinary.uploader.upload(filePath, {
-    folder: "artisana/artisans",
-    transformation: [{ quality: "auto", fetch_format: "auto" }],
+// artisan.controller.js
+
+const uploadFromBuffer = (buffer) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "artisana/artisans",
+        transformation: [{ quality: "auto", fetch_format: "auto" }],
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result.secure_url);
+      }
+    );
+    stream.end(buffer);
   });
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  return result.secure_url;
+
+const uploadImage = async (fileOrPath) => {
+  // Called with a multer file object (memoryStorage)
+  if (fileOrPath?.buffer) {
+    return uploadFromBuffer(fileOrPath.buffer);
+  }
+  // Called with a disk path (diskStorage)
+  if (typeof fileOrPath === "string") {
+    const result = await cloudinary.uploader.upload(fileOrPath, {
+      folder: "artisana/artisans",
+      transformation: [{ quality: "auto", fetch_format: "auto" }],
+    });
+    if (fs.existsSync(fileOrPath)) fs.unlinkSync(fileOrPath);
+    return result.secure_url;
+  }
+  throw new Error("uploadImage: invalid argument");
 };
 
 export const getAllArtisans = async (req, res) => {
@@ -106,41 +129,39 @@ export const getMyProfile = async (req, res) => {
 
 export const upsertMyProfile = async (req, res) => {
   try {
-    const {
-      phone, region, city, specialite, description,
-      instagram, facebook, tiktok, website, experience,
-      languages, tags,
-    } = req.body;
+    const { phone, region, city, specialite, description,
+            instagram, facebook, tiktok, website, experience,
+            languages, tags } = req.body;
 
     const update = {
       phone, region, city, specialite, description,
       instagram, facebook, tiktok, website, experience,
-      languages: Array.isArray(languages) ? languages : languages?.split(",").map((s) => s.trim()),
-      tags: Array.isArray(tags) ? tags : tags?.split(",").map((s) => s.trim()),
+      languages: Array.isArray(languages) ? languages : languages?.split(",").map(s => s.trim()),
+      tags:      Array.isArray(tags)      ? tags      : tags?.split(",").map(s => s.trim()),
     };
 
     const profileFile = req.files?.profilePhoto?.[0];
-    if (profileFile && profileFile.path) {  // ✅ added && profileFile.path
-      update.profilePhoto = await uploadImage(profileFile.path);
+    if (profileFile) {
+      // Works with both memoryStorage (buffer) and diskStorage (path)
+      update.profilePhoto = await uploadImage(profileFile.buffer ? profileFile : profileFile.path);
     }
 
     const galleryFiles = req.files?.images;
-    if (galleryFiles && galleryFiles.length > 0) {
+    if (galleryFiles?.length > 0) {
       update.images = await Promise.all(
-        galleryFiles
-          .filter(f => f.path)  // ✅ filter out any undefined paths
-          .map(f => uploadImage(f.path))
+        galleryFiles.map(f => uploadImage(f.buffer ? f : f.path))
       );
     }
 
     const artisan = await ArtisanProfile.findOneAndUpdate(
       { user: req.user._id },
       { $set: update },
-      { new: true, upsert: true }
+      { returnDocument: "after", upsert: true }   // also fixes the mongoose warning
     ).populate("user", "name email image");
 
     res.json(artisan);
   } catch (error) {
+    console.error("[upsertMyProfile]", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -219,7 +240,8 @@ export const getAllApprovedArtisans = async (req, res) => {
   try {
     const artisans = await ArtisanProfile.find({ isApproved: true })
       .populate("user", "name image")
-      .sort({ createdAt: -1 });
+      // ranked artisans (rank: 1, 2, 3…) come first; unranked (null) come last
+      .sort({ rank: 1, createdAt: -1 });
     res.json(artisans);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -246,6 +268,46 @@ export const adminUpdateArtisan = async (req, res) => {
     if (!artisan) return res.status(404).json({ message: "Artisan not found" });
 
     res.json(artisan);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * PATCH /api/artisans/:id/rank
+ * Body: { rank: 1 }        → set rank
+ *       { rank: null }     → remove rank (unranked)
+ *
+ * Admin only — protect this route with your isAdmin middleware.
+ */
+export const setArtisanRank = async (req, res) => {
+  try {
+    const { rank } = req.body;
+
+    // Validate: must be a positive integer or null
+    if (rank !== null && (!Number.isInteger(rank) || rank < 1)) {
+      return res.status(400).json({
+        message: "rank must be a positive integer (1, 2, 3…) or null to remove it.",
+      });
+    }
+
+    // If assigning a rank, clear it from any other artisan first (unique ranks)
+    if (rank !== null) {
+      await ArtisanProfile.updateMany(
+        { rank, _id: { $ne: req.params.id } },
+        { $set: { rank: null } }
+      );
+    }
+
+    const artisan = await ArtisanProfile.findByIdAndUpdate(
+      req.params.id,
+      { $set: { rank: rank ?? null } },
+      { new: true, runValidators: false }
+    ).populate("user", "name email image");
+
+    if (!artisan) return res.status(404).json({ message: "Artisan not found" });
+
+    res.json({ message: `Rank ${rank ?? "removed"} applied.`, artisan });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

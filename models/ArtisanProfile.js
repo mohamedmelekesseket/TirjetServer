@@ -7,6 +7,7 @@ const artisanSchema = new mongoose.Schema(
     phone:       String,
     region:      String,
     city:        String,
+    rank: { type: Number, default: null }, // null = unranked
     specialite:  String,
     description: String,
     instagram:   { type: String, default: "" },
