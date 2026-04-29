@@ -2,7 +2,8 @@ import Product from "../models/Product.js";
 import cloudinary from "../config/cloudinary.js";
 import streamifier from "streamifier";
 import User from "../models/User.js";
-
+import { v4 as uuidv4 } from "uuid";
+import ProductView from "../models/ProductView.js";
 // ── helper — upload one file via stream ───────────────────────────────────────
 const uploadImage = async (file) => {
   return new Promise((resolve, reject) => {
@@ -104,12 +105,46 @@ export const getAllProducts = async (req, res) => {
 // @route   GET /api/products/:id
 // @access  Public
 // ─────────────────────────────────────────
+
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate("artisan", "name email image")
       .populate("category", "name slug mainCategory");
+
     if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // ── Skip tracking if client says it already counted this view ──
+    const alreadyTracked = req.query.viewed === "1";
+
+    if (!alreadyTracked) {
+      // Identify the visitor: prefer userId, fall back to cookie UUID
+      let identifier = req.user?._id?.toString() ?? req.cookies?.visitor_id;
+
+      // If anonymous and no cookie yet, generate + set one (1 year)
+      if (!identifier) {
+        identifier = uuidv4();
+        res.cookie("visitor_id", identifier, {
+          maxAge:   365 * 24 * 60 * 60 * 1000,
+          httpOnly: true,
+          sameSite: "lax",
+        });
+      }
+
+      // Atomic upsert — if the pair already exists, nothing happens
+      const result = await ProductView.updateOne(
+        { product: req.params.id, identifier },
+        { $setOnInsert: { product: req.params.id, identifier } },
+        { upsert: true }
+      );
+
+      // Only increment views when a NEW record was actually inserted
+      if (result.upsertedCount === 1) {
+        await Product.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
+        product.views = (product.views ?? 0) + 1; // reflect in response
+      }
+    }
+
     res.json(product);
   } catch (error) {
     res.status(500).json({ message: error.message });

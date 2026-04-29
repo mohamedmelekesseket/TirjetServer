@@ -35,7 +35,7 @@ const productSchema = new mongoose.Schema(
     isHome:      { type: Boolean, default: false },
     isReported:  { type: Boolean, default: false },
     isSuspended: { type: Boolean, default: false },
-
+    views: { type: Number, default: 0 },
     comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
   },
   { timestamps: true }

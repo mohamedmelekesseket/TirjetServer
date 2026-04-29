@@ -20,8 +20,9 @@ const artisanSchema = new mongoose.Schema(
     extra:       { type: mongoose.Schema.Types.Mixed, default: {} },
     images:      [String],
     isApproved:  { type: Boolean, default: false },
-    isFeatured:  { type: Boolean, default: false },
+    isPremium:  { type: Boolean, default: false },
     notes:       String,
+    revenus:       String,
   },
   { timestamps: true, strict: false }
 );
