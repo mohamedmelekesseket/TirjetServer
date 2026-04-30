@@ -93,7 +93,7 @@ export const getArtisanByUserId = async (req, res) => {
         tags: [],
         images: [],
         isApproved: false,
-        isFeatured: false,
+        isPremium: false,
         notes: null,
         createdAt: user.createdAt,
       };
