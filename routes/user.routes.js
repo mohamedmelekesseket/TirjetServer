@@ -8,20 +8,17 @@ const router = express.Router();
 
 router.get("/", protect, requireAdmin, async (req, res) => {
   try {
-    const { role, status, page = 1, limit = 20, search } = req.query;
+    const { role, status, search } = req.query;
     const filter = {};
-    if (role) filter.role = role;
+    if (role)   filter.role   = role;
     if (status) filter.status = status;
-    if (search) filter.name = { $regex: search, $options: "i" };
+    if (search) filter.name   = { $regex: search, $options: "i" };
 
-    const total = await User.countDocuments(filter);
     const users = await User.find(filter)
       .select("-password")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .sort({ createdAt: -1 });
 
-    res.json({ users, total, page: Number(page), pages: Math.ceil(total / limit) });
+    res.json({ users, total: users.length });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

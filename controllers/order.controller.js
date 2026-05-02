@@ -1,6 +1,81 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Cart from "../models/Cart.js";
+import ArtisanProfile from "../models/ArtisanProfile.js";
+
+// ─────────────────────────────────────────
+// Revenue sync helper
+// Called fire-and-forget when an order is marked "delivered"
+// ─────────────────────────────────────────
+async function syncRevenueOnDelivered(order) {
+  try {
+    const populated = await Order.findById(order._id).populate("items.product", "artisan price quantity");
+
+    // Collect unique artisan user IDs from this order
+    const artisanUserIds = [
+      ...new Set(
+        populated.items
+          .map((i) => i.product?.artisan?.toString())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (!artisanUserIds.length) return;
+
+    const d     = order.createdAt ?? new Date();
+    const month = d.getMonth() + 1;
+    const year  = d.getFullYear();
+    const start = new Date(year, month - 1, 1);
+    const end   = new Date(year, month, 1);
+
+    await Promise.all(
+      artisanUserIds.map(async (artisanUserId) => {
+        // Get all products belonging to this artisan
+        const artisanProducts = await Product.find({ artisan: artisanUserId }).select("_id");
+        const productIds      = artisanProducts.map((p) => p._id);
+
+        // Sum only THIS artisan's items across all delivered orders this month
+        const [result] = await Order.aggregate([
+          {
+            $match: {
+              "items.product": { $in: productIds },
+              status:    "delivered",
+              createdAt: { $gte: start, $lt: end },
+            },
+          },
+          { $unwind: "$items" },
+          { $match: { "items.product": { $in: productIds } } },
+          {
+            $group: {
+              _id:   null,
+              total: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+            },
+          },
+        ]);
+
+        const amount = result?.total ?? 0;
+
+        const profile = await ArtisanProfile.findOne({ user: artisanUserId });
+        if (!profile) return;
+
+        const entryIndex = profile.revenus?.findIndex(
+          (r) => r.month === month && r.year === year
+        ) ?? -1;
+
+        if (entryIndex >= 0) {
+          profile.revenus[entryIndex].amount = amount;
+        } else {
+          profile.revenus = [...(profile.revenus ?? []), { month, year, amount }];
+        }
+
+        await profile.save();
+      })
+    );
+  } catch (err) {
+    // Non-blocking — never fails the request
+    console.error("[syncRevenueOnDelivered]", err.message);
+  }
+}
 
 // ─────────────────────────────────────────
 // @desc    Checkout from cart → create order
@@ -20,7 +95,6 @@ export const checkoutFromCart = async (req, res) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    // Auto-remove items whose product was deleted or unpopulated
     const validItems = cart.items.filter((item) => item.product != null);
     if (validItems.length === 0) {
       return res.status(400).json({ message: "All products in your cart are no longer available" });
@@ -31,12 +105,8 @@ export const checkoutFromCart = async (req, res) => {
 
     for (const item of validItems) {
       const p = item.product;
-
       if (!p.isApproved) throw new Error(`Product "${p.title}" is not approved yet`);
-      if (p.stock < item.quantity) {
-        throw new Error(`Not enough stock for "${p.title}" (available: ${p.stock})`);
-      }
-
+      if (p.stock < item.quantity) throw new Error(`Not enough stock for "${p.title}" (available: ${p.stock})`);
       total += p.price * item.quantity;
       resolvedItems.push({ product: p._id, quantity: item.quantity, price: p.price });
     }
@@ -63,6 +133,7 @@ export const checkoutFromCart = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
 // ─────────────────────────────────────────
 // @desc    Get ALL orders (admin overview)
 // @route   GET /api/orders
@@ -182,8 +253,7 @@ export const createOrder = async (req, res) => {
         const p = await Product.findById(product);
         if (!p) throw new Error(`Product ${product} not found`);
         if (!p.isApproved) throw new Error(`Product "${p.title}" is not available`);
-        if (p.stock < quantity)
-          throw new Error(`Not enough stock for "${p.title}" (available: ${p.stock})`);
+        if (p.stock < quantity) throw new Error(`Not enough stock for "${p.title}" (available: ${p.stock})`);
         total += p.price * quantity;
         return { product: p._id, quantity, price: p.price };
       })
@@ -215,23 +285,32 @@ export const createOrder = async (req, res) => {
 // ─────────────────────────────────────────
 export const updateOrderStatus = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
-      .populate("items.product", "artisan");
+    const { status } = req.body;
 
+    // "paid" is removed — reject it if sent directly via API
+    const ALLOWED = ["pending", "shipped", "delivered", "cancelled"];
+    if (!ALLOWED.includes(status)) {
+      return res.status(400).json({ message: `Statut invalide : ${status}` });
+    }
+
+    const order = await Order.findById(req.params.id).populate("items.product", "artisan");
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    // Vendors can only update orders that contain their products
     if (req.user.role === "vendor") {
       const ownsAProduct = order.items.some(
         (item) => item.product?.artisan?.toString() === req.user._id.toString()
       );
-      if (!ownsAProduct) {
-        return res.status(403).json({ message: "Not authorized" });
-      }
+      if (!ownsAProduct) return res.status(403).json({ message: "Not authorized" });
     }
 
-    order.status = req.body.status;
+    order.status = status;
     await order.save();
+
+    // ── Auto-sync artisan monthly revenue on delivery ─────────────────────
+    if (status === "delivered") {
+      syncRevenueOnDelivered(order); // fire-and-forget, never blocks response
+    }
+
     res.json(order);
   } catch (error) {
     res.status(500).json({ message: error.message });

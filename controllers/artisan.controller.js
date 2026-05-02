@@ -40,25 +40,16 @@ const uploadImage = async (fileOrPath) => {
 
 export const getAllArtisans = async (req, res) => {
   try {
-    const { approved, page = 1, limit = 20 } = req.query;
-
+    const { approved } = req.query;
     const filter = {};
-    if (approved === "true") filter.isApproved = true;
+    if (approved === "true")  filter.isApproved = true;
     if (approved === "false") filter.isApproved = false;
 
-    const total = await ArtisanProfile.countDocuments(filter);
     const artisans = await ArtisanProfile.find(filter)
       .populate("user", "name email image status createdAt")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .sort({ rank: 1, createdAt: -1 }); // ranked first (1,2,3...), unranked last
 
-    res.json({
-      artisans,
-      total,
-      page: Number(page),
-      pages: Math.ceil(total / limit),
-    });
+    res.json({ artisans, total: artisans.length });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

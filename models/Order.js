@@ -7,6 +7,11 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
     },
 
+    artisan: {                                   // ← added
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ArtisanProfile",
+    },
+
     items: [
       {
         product: {
@@ -22,7 +27,7 @@ const orderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "paid", "shipped", "delivered", "cancelled"],
+      enum: ["pending", "shipped", "delivered", "cancelled"], // ← removed "paid"
       default: "pending",
     },
 
