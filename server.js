@@ -13,6 +13,8 @@ import favouriteRoutes from "./routes/Favourite.routes.js";
 import categoryRoutes from "./routes/Category.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import maisonRoutes from "./routes/Maisondhote.routes.js";  // ← add this import
+import cultureAmazighRoutes from "./routes/Cultureamazighroutes.js";
+
 connectDB();
 
 const app = express();
@@ -60,6 +62,8 @@ app.use("/api/favourites", favouriteRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/maisons-dhotes", maisonRoutes);  // ← add this line
+app.use("/api/culture-amazigh", cultureAmazighRoutes);
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

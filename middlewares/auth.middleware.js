@@ -28,7 +28,12 @@ export const protect = async (req, res, next) => {
 };
 
 export const adminOnly = (req, res, next) => {
-  if (req.user?.role !== "admin" &&  req.user?.role !== "vendor")
+  if (req.user?.role !== "admin")
     return res.status(403).json({ message: "Admin access required" });
+  next();
+};
+export const vendorOrAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin" && req.user?.role !== "vendor")
+    return res.status(403).json({ message: "Vendor or admin access required" });
   next();
 };
