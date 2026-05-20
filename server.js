@@ -14,7 +14,7 @@ import categoryRoutes from "./routes/Category.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import maisonRoutes from "./routes/Maisondhote.routes.js";  // ← add this import
 import cultureAmazighRoutes from "./routes/Cultureamazighroutes.js";
-
+import reservationRoutes from "./routes/reservation.route.js";
 connectDB();
 
 const app = express();
@@ -63,6 +63,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/maisons-dhotes", maisonRoutes);  // ← add this line
 app.use("/api/culture-amazigh", cultureAmazighRoutes);
+app.use("/api/reservations", reservationRoutes);
 
 const PORT = process.env.PORT || 5000;
 

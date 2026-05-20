@@ -216,7 +216,38 @@ export const createMaisonForVendor = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+export const createMaisonAsAdmin = async (req, res) => {
+  try {
+    // ── Upload images to Cloudinary (same as other controllers) ──
+    let images = [];
+    if (req.files?.length) {
+      images = await Promise.all(req.files.map((f) => uploadImage(f)));
+    }
 
+    // ── Parse amenities (FormData sends repeated keys) ──
+    const amenities = req.body.amenities
+      ? Array.isArray(req.body.amenities)
+        ? req.body.amenities
+        : [req.body.amenities]
+      : [];
+
+    const maison = await MaisonDhote.create(
+      buildMaisonDoc({
+        body: { ...req.body, amenities },
+        hostId: req.user._id,   // admin is the host
+        images,
+      })
+    );
+
+    // Auto-approve since admin is publishing
+    await MaisonDhote.findByIdAndUpdate(maison._id, { isApproved: true });
+
+    res.status(201).json({ ...maison.toObject(), isApproved: true });
+  } catch (err) {
+    console.error("CREATE MAISON AS ADMIN ERROR:", err);
+    res.status(400).json({ message: err.message });
+  }
+};
 // ─────────────────────────────────────────
 // @desc    Update a maison d'hôte
 // @route   PUT /api/maisons-dhotes/:id

@@ -4,6 +4,7 @@ import {
   getMaisonById,
   getMyMaisons,
   createMaison,
+  createMaisonAsAdmin,      // ← add this
   createMaisonForVendor,
   updateMaison,
   approveMaison,
@@ -35,7 +36,15 @@ router.post(
   upload.array("images", 8),
   createMaisonForVendor
 );
-
+// routes/maisonsdhotes.js
+// Replace the broken inline route with this:
+router.post(
+  "/admin/create",
+  protect,
+  requireAdmin,
+  upload.array("images", 8),
+  createMaisonAsAdmin
+);
 // GET  /api/maisons-dhotes/:id
 router.get("/:id", getMaisonById);
 
