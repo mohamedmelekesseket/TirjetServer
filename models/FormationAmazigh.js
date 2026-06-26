@@ -21,6 +21,7 @@ const formationAmazighSchema = new mongoose.Schema(
       type: [String],
       validate: { validator: (v) => v.length > 0, message: "At least one attente required" },
     },
+    motivation: { type: String, required: true, trim: true },
 
     // Meta
     status: { type: String, enum: ["nouveau", "contacté", "inscrit", "refusé"], default: "nouveau" },

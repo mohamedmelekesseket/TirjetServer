@@ -9,11 +9,11 @@ export const submitForm = async (req, res) => {
   try {
     const {
       nomPrenom, genre, trancheAge, email, telephone, region, niveauEtudes,
-      niveauOral, niveauEcrit, niveauTifinagh, attentes,
+      niveauOral, niveauEcrit, niveauTifinagh, attentes, motivation,
     } = req.body;
 
     // Basic validation
-    const required = { nomPrenom, genre, trancheAge, email, telephone, region, niveauEtudes, niveauOral, niveauEcrit, niveauTifinagh };
+    const required = { nomPrenom, genre, trancheAge, email, telephone, region, niveauEtudes, niveauOral, niveauEcrit, niveauTifinagh, motivation };
     const missing = Object.entries(required)
       .filter(([, v]) => !v)
       .map(([k]) => k);
@@ -28,7 +28,7 @@ export const submitForm = async (req, res) => {
 
     const form = await FormationAmazigh.create({
       nomPrenom, genre, trancheAge, email, telephone, region, niveauEtudes,
-      niveauOral, niveauEcrit, niveauTifinagh, attentes,
+      niveauOral, niveauEcrit, niveauTifinagh, attentes, motivation,
     });
 
     res.status(201).json({ message: "Formulaire soumis avec succès", id: form._id });
