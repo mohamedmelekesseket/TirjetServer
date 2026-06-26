@@ -15,6 +15,10 @@ import cartRoutes from "./routes/cart.routes.js";
 import maisonRoutes from "./routes/Maisondhote.routes.js";  // ← add this import
 import cultureAmazighRoutes from "./routes/Cultureamazighroutes.js";
 import reservationRoutes from "./routes/reservation.route.js";
+import formationAmazighRoutes from "./routes/formationAmazigh.routes.js";
+// server.js
+import { createServer } from "http";
+
 connectDB();
 
 const app = express();
@@ -50,8 +54,8 @@ app.get("/", (req, res) => {
   res.send("API running...");
 });
 // In your app.js / server.js — increase limit for base64 image uploads
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use("/api/artisans", artisanRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
@@ -65,6 +69,9 @@ app.use("/api/maisons-dhotes", maisonRoutes);  // ← add this line
 app.use("/api/culture-amazigh", cultureAmazighRoutes);
 app.use("/api/reservations", reservationRoutes);
 
+app.use("/api/formation-amazigh", formationAmazighRoutes);
 const PORT = process.env.PORT || 5000;
+const server = createServer(app);
+server.timeout = 300_000; // 5 minutes - must be >= the route-level timeout
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

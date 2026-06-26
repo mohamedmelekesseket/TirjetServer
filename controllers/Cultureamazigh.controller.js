@@ -10,6 +10,7 @@ const uploadImage = async (file) => {
       {
         folder: "artisana/culture-amazigh",
         transformation: [{ quality: "auto", fetch_format: "auto" }],
+        timeout: 60000, // 60 seconds per image
       },
       (error, result) => {
         if (result) resolve(result.secure_url);
@@ -19,7 +20,24 @@ const uploadImage = async (file) => {
     streamifier.createReadStream(file.buffer).pipe(stream);
   });
 };
-
+const uploadVideo = async (file) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "video",
+        folder: "artisana/culture-amazigh/videos",
+        transformation: [{ quality: "auto" }],
+        timeout: 300000,        // 5 minutes per video upload
+        chunk_size: 10000000,   // 10MB chunks for better stability
+      },
+      (error, result) => {
+        if (result) resolve(result.secure_url);
+        else reject(error);
+      }
+    );
+    streamifier.createReadStream(file.buffer).pipe(stream);
+  });
+};
 // ── Allowed types ─────────────────────────────────────────────────────────────
 const ALLOWED_TYPES = [
   "Langue amazigh",
@@ -33,7 +51,7 @@ const ALLOWED_TYPES = [
 ];
 
 // ── Build document helper ─────────────────────────────────────────────────────
-function buildCultureDoc({ body, hostId, images }) {
+function buildCultureDoc({ body, hostId, images, videos = [], videoUrls = [] }) {
   const { Auteur, title, description, type, amenities } = body;
 
   return {
@@ -42,11 +60,11 @@ function buildCultureDoc({ body, hostId, images }) {
     description,
     type,
     amenities: amenities
-      ? Array.isArray(amenities)
-        ? amenities
-        : JSON.parse(amenities)
+      ? Array.isArray(amenities) ? amenities : JSON.parse(amenities)
       : [],
     images,
+    videos,       // ← ADD
+    videoUrls,    // ← ADD
     host: hostId,
     isApproved: false,
   };
@@ -197,23 +215,26 @@ export const createCulture = async (req, res) => {
   try {
     const { title, description, type } = req.body;
 
-    if (!title || !description || !type) {
-      return res.status(400).json({
-        message: "title, description and type are required",
-      });
-    }
+    if (!title || !description || !type)
+      return res.status(400).json({ message: "title, description and type are required" });
 
-    if (!ALLOWED_TYPES.includes(type)) {
+    if (!ALLOWED_TYPES.includes(type))
       return res.status(400).json({ message: "Invalid type", allowed: ALLOWED_TYPES });
-    }
 
-    let images = [];
-    if (req.files?.length) {
-      images = await Promise.all(req.files.map((f) => uploadImage(f)));
-    }
+    const imageFiles = req.files?.images ?? [];
+    const videoFilesList = req.files?.videos ?? [];
+
+    const [images, videos] = await Promise.all([
+      Promise.all(imageFiles.map(uploadImage)),
+      Promise.all(videoFilesList.map(uploadVideo)),
+    ]);
+
+    const videoUrls = req.body.videoUrls
+      ? Array.isArray(req.body.videoUrls) ? req.body.videoUrls : [req.body.videoUrls]
+      : [];
 
     const culture = await CultureAmazigh.create(
-      buildCultureDoc({ body: req.body, hostId: req.user._id, images })
+      buildCultureDoc({ body: req.body, hostId: req.user._id, images, videos, videoUrls })
     );
 
     res.status(201).json(culture);
@@ -230,31 +251,46 @@ export const createCulture = async (req, res) => {
 // ─────────────────────────────────────────
 export const createCultureByAdmin = async (req, res) => {
   try {
+    console.log("CREATE CULTURE BY ADMIN - Request body:", req.body);
+    console.log("CREATE CULTURE BY ADMIN - Files:", req.files);
+    console.log("CREATE CULTURE BY ADMIN - User:", req.user);
+
     const { title, description, type } = req.body;
 
-    if (!title || !description || !type) {
-      return res.status(400).json({
-        message: "title, description and type are required",
-      });
-    }
+    if (!title || !description || !type)
+      return res.status(400).json({ message: "title, description and type are required" });
 
-    if (!ALLOWED_TYPES.includes(type)) {
+    if (!ALLOWED_TYPES.includes(type))
       return res.status(400).json({ message: "Invalid type", allowed: ALLOWED_TYPES });
-    }
 
-    let images = [];
-    if (req.files?.length) {
-      images = await Promise.all(req.files.map((f) => uploadImage(f)));
-    }
+    const imageFiles = req.files?.images ?? [];
+    const videoFilesList = req.files?.videos ?? [];
 
-    // Admin is the host — auto-approved
-    const doc = buildCultureDoc({ body: req.body, hostId: req.user._id, images });
+    console.log("Image files count:", imageFiles.length);
+    console.log("Video files count:", videoFilesList.length);
+
+    const [images, videos] = await Promise.all([
+      Promise.all(imageFiles.map(uploadImage)),
+      Promise.all(videoFilesList.map(uploadVideo)),
+    ]);
+
+    console.log("Uploaded images:", images);
+    console.log("Uploaded videos:", videos);
+
+    const videoUrls = req.body.videoUrls
+      ? Array.isArray(req.body.videoUrls) ? req.body.videoUrls : [req.body.videoUrls]
+      : [];
+
+    const doc = buildCultureDoc({ body: req.body, hostId: req.user._id, images, videos, videoUrls });
     doc.isApproved = true;
+
+    console.log("Creating document:", doc);
 
     const culture = await CultureAmazigh.create(doc);
     res.status(201).json(culture);
   } catch (error) {
     console.error("CREATE CULTURE BY ADMIN ERROR:", error);
+    console.error("Error stack:", error.stack);
     res.status(500).json({ message: error.message });
   }
 };
@@ -268,28 +304,30 @@ export const createCultureForVendor = async (req, res) => {
   try {
     const { title, description, type, hostId } = req.body;
 
-    if (!title || !description || !type || !hostId) {
-      return res.status(400).json({
-        message: "title, description, type and hostId are required",
-      });
-    }
+    if (!title || !description || !type || !hostId)
+      return res.status(400).json({ message: "title, description, type and hostId are required" });
 
-    if (!ALLOWED_TYPES.includes(type)) {
+    if (!ALLOWED_TYPES.includes(type))
       return res.status(400).json({ message: "Invalid type", allowed: ALLOWED_TYPES });
-    }
 
     const vendor = await User.findById(hostId);
-    if (!vendor || vendor.role !== "vendor") {
+    if (!vendor || vendor.role !== "vendor")
       return res.status(400).json({ message: "Target user is not a vendor" });
-    }
 
-    let images = [];
-    if (req.files?.length) {
-      images = await Promise.all(req.files.map((f) => uploadImage(f)));
-    }
+    const imageFiles = req.files?.images ?? [];
+    const videoFilesList = req.files?.videos ?? [];
+
+    const [images, videos] = await Promise.all([
+      Promise.all(imageFiles.map(uploadImage)),
+      Promise.all(videoFilesList.map(uploadVideo)),
+    ]);
+
+    const videoUrls = req.body.videoUrls
+      ? Array.isArray(req.body.videoUrls) ? req.body.videoUrls : [req.body.videoUrls]
+      : [];
 
     const culture = await CultureAmazigh.create(
-      buildCultureDoc({ body: req.body, hostId, images })
+      buildCultureDoc({ body: req.body, hostId, images, videos, videoUrls })
     );
 
     res.status(201).json(culture);
@@ -298,7 +336,6 @@ export const createCultureForVendor = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // ─────────────────────────────────────────
 // @desc    Update a publication
 // @route   PUT /api/culture-amazigh/:id
@@ -311,39 +348,45 @@ export const updateCulture = async (req, res) => {
 
     const isOwner = culture.host.toString() === req.user._id.toString();
     const isAdmin = req.user.role === "admin";
+    if (!isOwner && !isAdmin) return res.status(403).json({ message: "Not authorized" });
 
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
+    const updateData = {}; // ← declared first now
 
-    // ── Image handling ────────────────────────────────────────────────────────
+    // images
     let images = culture.images;
-
-    if (req.files?.length) {
-      const newImages = await Promise.all(req.files.map((f) => uploadImage(f)));
-      images =
-        req.body.appendImages === "true"
-          ? [...culture.images, ...newImages]
-          : newImages;
+    if (req.files?.images?.length) {
+      const newImages = await Promise.all(req.files.images.map((f) => uploadImage(f)));
+      images = req.body.appendImages === "true" ? [...culture.images, ...newImages] : newImages;
     } else if (req.body.images !== undefined) {
-      const incoming = Array.isArray(req.body.images)
-        ? req.body.images
-        : JSON.parse(req.body.images);
+      const incoming = Array.isArray(req.body.images) ? req.body.images : JSON.parse(req.body.images);
       images = incoming.filter((url) => !url.startsWith("blob:"));
     }
+    updateData.images = images;
 
-    // ── Core fields ───────────────────────────────────────────────────────────
+    // videos
+    let videos = culture.videos ?? [];
+    if (req.files?.videos?.length) {
+      const newVideos = await Promise.all(req.files.videos.map(uploadVideo));
+      videos = req.body.appendVideos === "true" ? [...culture.videos, ...newVideos] : newVideos;
+    } else if (req.body.videos !== undefined) {
+      videos = Array.isArray(req.body.videos) ? req.body.videos : JSON.parse(req.body.videos);
+    }
+    updateData.videos = videos;
+
+    // videoUrls
+    let videoUrls = culture.videoUrls ?? [];
+    if (req.body.videoUrls !== undefined) {
+      videoUrls = Array.isArray(req.body.videoUrls) ? req.body.videoUrls : [req.body.videoUrls];
+    }
+    updateData.videoUrls = videoUrls;
+
+    // core fields
     const { Auteur, title, description, type, amenities } = req.body;
-
-    const updateData = {};
-
-    if (Auteur      !== undefined) updateData.Auteur      = Auteur;
-    if (title       !== undefined) updateData.title       = title;
+    if (Auteur !== undefined) updateData.Auteur = Auteur;
+    if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
-    if (amenities   !== undefined) {
-      updateData.amenities = Array.isArray(amenities)
-        ? amenities
-        : JSON.parse(amenities);
+    if (amenities !== undefined) {
+      updateData.amenities = Array.isArray(amenities) ? amenities : JSON.parse(amenities);
     }
     if (type !== undefined) {
       if (!ALLOWED_TYPES.includes(type)) {
@@ -351,16 +394,13 @@ export const updateCulture = async (req, res) => {
       }
       updateData.type = type;
     }
-    updateData.images = images;
-
-    // ── Admin-only flags ──────────────────────────────────────────────────────
-    const toBool = (v) => v === "true" || v === true;
 
     if (isAdmin) {
+      const toBool = (v) => v === "true" || v === true;
       const { isApproved, isSuspended, isFeatured, isEditorsPick } = req.body;
-      if (isApproved    !== undefined) updateData.isApproved    = toBool(isApproved);
-      if (isSuspended   !== undefined) updateData.isSuspended   = toBool(isSuspended);
-      if (isFeatured    !== undefined) updateData.isFeatured    = toBool(isFeatured);
+      if (isApproved !== undefined) updateData.isApproved = toBool(isApproved);
+      if (isSuspended !== undefined) updateData.isSuspended = toBool(isSuspended);
+      if (isFeatured !== undefined) updateData.isFeatured = toBool(isFeatured);
       if (isEditorsPick !== undefined) updateData.isEditorsPick = toBool(isEditorsPick);
     }
 

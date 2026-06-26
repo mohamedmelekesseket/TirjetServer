@@ -29,7 +29,8 @@ const cultureamazighSchema = new mongoose.Schema(
     // ── Amenities & Images ───────────────────────────────────────
     amenities: [String],
     images: [String],
-
+    videos:     [String],          // Cloudinary video URLs  ← ADD
+    videoUrls:  [String],          // YouTube / Vimeo embeds ← ADD
     // ── Host (vendor) ────────────────────────────────────────────
     host: {
       type: mongoose.Schema.Types.ObjectId,
