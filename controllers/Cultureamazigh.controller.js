@@ -26,7 +26,6 @@ const uploadVideo = async (file) => {
       {
         resource_type: "video",
         folder: "artisana/culture-amazigh/videos",
-        transformation: [{ quality: "auto" }],
         timeout: 300000,        // 5 minutes per video upload
         chunk_size: 10000000,   // 10MB chunks for better stability
       },
