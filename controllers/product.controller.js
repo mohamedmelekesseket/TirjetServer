@@ -4,6 +4,8 @@ import streamifier from "streamifier";
 import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import ProductView from "../models/ProductView.js";
+import { createNotification, getAdminUsers } from "./notification.controller.js";
+import { sendNotificationEmail } from "../utils/emailService.js";
 // ── helper — upload one file via stream ───────────────────────────────────────
 const uploadImage = async (file) => {
   return new Promise((resolve, reject) => {
@@ -232,6 +234,28 @@ export const createProduct = async (req, res) => {
     const product = await Product.create(
       buildProductDoc({ body: req.body, artisanId: req.user._id, images })
     );
+
+    // ── Create notification for admins ───────────────────────────────────────
+    const admins = await getAdminUsers();
+    const artisan = await User.findById(req.user._id).select("name email");
+    
+    for (const admin of admins) {
+      await createNotification({
+        recipient: admin._id,
+        type: "new_product",
+        title: "Nouveau Produit Ajouté",
+        message: `${artisan.name} a ajouté un nouveau produit: ${title}`,
+        relatedId: product._id,
+        relatedModel: "Product",
+      });
+
+      // Send email to admin
+      await sendNotificationEmail(admin.email, "new_product", {
+        productTitle: title,
+        artisanName: artisan.name,
+        price: price,
+      });
+    }
 
     res.status(201).json(product);
   } catch (error) {

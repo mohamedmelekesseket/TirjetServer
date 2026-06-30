@@ -3,6 +3,8 @@ import Product from "../models/Product.js";
 import User from "../models/User.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
+import { createNotification, getAdminUsers } from "./notification.controller.js";
+import { sendNotificationEmail } from "../utils/emailService.js";
 
 // artisan.controller.js
 
@@ -220,6 +222,30 @@ export const applyAsArtisan = async (req, res) => {
       images,
       isApproved: false,
     });
+
+    // ── Create notification for admins ───────────────────────────────────────
+    const admins = await getAdminUsers();
+    const user = await User.findById(req.user._id).select("name email");
+    
+    for (const admin of admins) {
+      await createNotification({
+        recipient: admin._id,
+        type: "artisan_request",
+        title: "Nouvelle Demande Artisan",
+        message: `${user.name} a soumis une demande pour devenir artisan`,
+        relatedId: profile._id,
+        relatedModel: "ArtisanProfile",
+      });
+
+      // Send email to admin
+      await sendNotificationEmail(admin.email, "artisan_request", {
+        userName: user.name,
+        userEmail: user.email,
+        specialite,
+        region,
+        city,
+      });
+    }
 
     res.status(201).json({ message: "Application submitted successfully", profile });
   } catch (error) {

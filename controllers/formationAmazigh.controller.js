@@ -1,4 +1,8 @@
 import FormationAmazigh from "../models/FormationAmazigh.js";
+import { createNotification, getAdminUsers } from "./notification.controller.js";
+import { sendNotificationEmail } from "../utils/emailService.js";
+
+console.log("[Controller] Formation Amazigh controller loaded");
 
 // ─────────────────────────────────────────
 // @desc    Submit formation amazigh form
@@ -6,6 +10,9 @@ import FormationAmazigh from "../models/FormationAmazigh.js";
 // @access  Public
 // ─────────────────────────────────────────
 export const submitForm = async (req, res) => {
+  console.log("[Formation Form] Form submission received");
+  console.log("[Formation Form] Body:", req.body);
+  
   try {
     const {
       nomPrenom, genre, trancheAge, email, telephone, region, niveauEtudes,
@@ -30,6 +37,45 @@ export const submitForm = async (req, res) => {
       nomPrenom, genre, trancheAge, email, telephone, region, niveauEtudes,
       niveauOral, niveauEcrit, niveauTifinagh, attentes, motivation,
     });
+
+    console.log("[Formation Form] Form created successfully, ID:", form._id);
+
+    // ── Create notification for admins ───────────────────────────────────────
+    try {
+      console.log("[Formation Form] Starting notification process...");
+      const admins = await getAdminUsers();
+      console.log("[Formation Form] Admins found:", admins.length);
+      
+      if (admins.length === 0) {
+        console.log("[Formation Form] WARNING: No admin users found in database");
+      } else {
+        for (const admin of admins) {
+          console.log("[Formation Form] Creating notification for admin:", admin.email);
+          await createNotification({
+            recipient: admin._id,
+            type: "formation_form",
+            title: "Nouvelle Demande de Formation",
+            message: `${nomPrenom} a soumis une demande de formation Amazigh`,
+            relatedId: form._id,
+            relatedModel: "FormationAmazigh",
+          });
+
+          // Send email to admin
+          console.log("[Formation Form] Sending email to:", admin.email);
+          await sendNotificationEmail(admin.email, "formation_form", {
+            nomPrenom,
+            email,
+            telephone,
+            region,
+            niveauEtudes,
+          });
+        }
+        console.log("[Formation Form] Notification process completed");
+      }
+    } catch (notifError) {
+      console.error("[Formation Form] Error in notification process:", notifError);
+      // Don't fail the form submission if notification fails
+    }
 
     res.status(201).json({ message: "Formulaire soumis avec succès", id: form._id });
   } catch (error) {

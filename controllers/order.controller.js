@@ -2,6 +2,9 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Cart from "../models/Cart.js";
 import ArtisanProfile from "../models/ArtisanProfile.js";
+import User from "../models/User.js";
+import { createNotification, getAdminUsers } from "./notification.controller.js";
+import { sendNotificationEmail } from "../utils/emailService.js";
 
 // ─────────────────────────────────────────
 // Revenue sync helper
@@ -127,6 +130,62 @@ export const checkoutFromCart = async (req, res) => {
     );
 
     await Cart.findOneAndDelete({ user: req.user._id });
+
+    // ── Create notifications for admins ───────────────────────────────────────
+    const admins = await getAdminUsers();
+    const customer = await User.findById(req.user._id).select("name email");
+    
+    for (const admin of admins) {
+      await createNotification({
+        recipient: admin._id,
+        type: "new_order",
+        title: "Nouvelle Commande",
+        message: `${customer.name} a passé une commande de ${total} TND`,
+        relatedId: order._id,
+        relatedModel: "Order",
+      });
+
+      // Send email to admin
+      await sendNotificationEmail(admin.email, "new_order_admin", {
+        customerName: customer.name,
+        customerEmail: customer.email,
+        total: total,
+        itemsCount: resolvedItems.length,
+      });
+    }
+
+    // ── Create notifications for artisans (product owners) ───────────────────
+    const artisanUserIds = [
+      ...new Set(
+        validItems
+          .map((item) => item.product?.artisan?.toString())
+          .filter(Boolean)
+      ),
+    ];
+
+    for (const artisanUserId of artisanUserIds) {
+      const artisan = await User.findById(artisanUserId).select("name email");
+      const artisanProfile = await ArtisanProfile.findOne({ user: artisanUserId }).select("name");
+      
+      if (artisan) {
+        await createNotification({
+          recipient: artisan._id,
+          type: "new_order",
+          title: "Nouvelle Commande Reçue",
+          message: `${customer.name} a commandé vos produits`,
+          relatedId: order._id,
+          relatedModel: "Order",
+        });
+
+        // Send email to artisan
+        await sendNotificationEmail(artisan.email, "new_order_artisan", {
+          artisanName: artisanProfile?.name || artisan.name,
+          customerName: customer.name,
+          total: total,
+          itemsCount: resolvedItems.length,
+        });
+      }
+    }
 
     res.status(201).json(order);
   } catch (error) {

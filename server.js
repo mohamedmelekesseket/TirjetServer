@@ -16,6 +16,7 @@ import maisonRoutes from "./routes/Maisondhote.routes.js";  // ← add this impo
 import cultureAmazighRoutes from "./routes/Cultureamazighroutes.js";
 import reservationRoutes from "./routes/reservation.route.js";
 import formationAmazighRoutes from "./routes/formationAmazigh.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 // server.js
 import { createServer } from "http";
 
@@ -72,6 +73,7 @@ app.use("/api/culture-amazigh", cultureAmazighRoutes);
 app.use("/api/reservations", reservationRoutes);
 
 app.use("/api/formation-amazigh", formationAmazighRoutes);
+app.use("/api/notifications", notificationRoutes);
 const PORT = process.env.PORT || 5000;
 const server = createServer(app);
 server.timeout = 300_000; // 5 minutes - must be >= the route-level timeout
