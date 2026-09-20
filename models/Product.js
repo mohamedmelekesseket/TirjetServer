@@ -30,6 +30,13 @@ const productSchema = new mongoose.Schema(
       ref:  "User",
     },
 
+    // ── Product attributes for filtering ───────────────────────────────────────
+    location:    { type: String, trim: true },  // Region/location of the product
+    material:    { type: String, trim: true },  // Material (e.g., Laine, Argile, Cuir)
+    dimensions:  { type: String, trim: true },  // Size/dimensions (e.g., "30x40cm", "L")
+    colors:      [String],                      // Available colors
+    tags:        [String],                      // Flexible tags for categorization
+
     stock:       { type: Number,  default: 1 },
     isApproved:  { type: Boolean, default: true },
     isHome:      { type: Boolean, default: false },

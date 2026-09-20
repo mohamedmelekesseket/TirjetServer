@@ -166,7 +166,18 @@ export const checkoutFromCart = async (req, res) => {
     for (const artisanUserId of artisanUserIds) {
       const artisan = await User.findById(artisanUserId).select("name email");
       const artisanProfile = await ArtisanProfile.findOne({ user: artisanUserId }).select("name");
-      
+
+      // Get items belonging to this artisan
+      const artisanProductIds = await Product.find({ artisan: artisanUserId }).select("_id");
+      const artisanProductIdsList = artisanProductIds.map(p => p._id.toString());
+      const artisanItems = validItems.filter(item =>
+        artisanProductIdsList.includes(item.product._id.toString())
+      ).map(item => ({
+        name: item.product.title,
+        quantity: item.quantity,
+        price: item.product.price
+      }));
+
       if (artisan) {
         await createNotification({
           recipient: artisan._id,
@@ -182,7 +193,8 @@ export const checkoutFromCart = async (req, res) => {
           artisanName: artisanProfile?.name || artisan.name,
           customerName: customer.name,
           total: total,
-          itemsCount: resolvedItems.length,
+          itemsCount: artisanItems.length,
+          items: artisanItems,
         });
       }
     }
@@ -352,7 +364,7 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ message: `Statut invalide : ${status}` });
     }
 
-    const order = await Order.findById(req.params.id).populate("items.product", "artisan");
+    const order = await Order.findById(req.params.id).populate("items.product", "artisan").populate("user", "name email");
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     if (req.user.role === "vendor") {
@@ -362,12 +374,31 @@ export const updateOrderStatus = async (req, res) => {
       if (!ownsAProduct) return res.status(403).json({ message: "Not authorized" });
     }
 
+    const oldStatus = order.status;
     order.status = status;
     await order.save();
 
     // ── Auto-sync artisan monthly revenue on delivery ─────────────────────
     if (status === "delivered") {
       syncRevenueOnDelivered(order); // fire-and-forget, never blocks response
+    }
+
+    // ── Send email notification to customer on status change ───────────────
+    if (oldStatus !== status && order.user?.email) {
+      const statusLabels = {
+        pending: "En attente",
+        shipped: "Expédié",
+        delivered: "Livré",
+        cancelled: "Annulé"
+      };
+
+      await sendNotificationEmail(order.user.email, "order_status", {
+        customerName: order.user.name,
+        status: statusLabels[status] || status,
+        orderId: order._id.toString().slice(-8).toUpperCase(),
+        total: order.total,
+        itemsCount: order.items.length
+      });
     }
 
     res.json(order);

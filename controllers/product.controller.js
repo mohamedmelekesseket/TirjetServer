@@ -186,6 +186,7 @@ function buildProductDoc({ body, artisanId, images }) {
     subcategoryL2Slug, subcategoryL2Name,
     subcategoryL3Slug, subcategoryL3Name,
     subcategoryL4Slug, subcategoryL4Name,
+    solde, location, material, dimensions, colors, tags,
   } = body;
 
   const doc = {
@@ -198,6 +199,14 @@ function buildProductDoc({ body, artisanId, images }) {
     artisan:    artisanId,
     isApproved: true,
   };
+
+  // New fields
+  if (solde) doc.solde = Number(solde);
+  if (location) doc.location = location;
+  if (material) doc.material = material;
+  if (dimensions) doc.dimensions = dimensions;
+  if (colors) doc.colors = typeof colors === 'string' ? colors.split(',').map(c => c.trim()) : colors;
+  if (tags) doc.tags = typeof tags === 'string' ? tags.split(',').map(t => t.trim()) : tags;
 
   if (subcategoryL2Slug) {
     doc.subcategoryL2 = { slug: subcategoryL2Slug, name: subcategoryL2Name || "" };
@@ -333,7 +342,7 @@ export const updateProduct = async (req, res) => {
     }
 
     // ── Core fields ─────────────────────────────────────────────────────────
-    const { title, description, price, category, stock } = req.body;
+    const { title, description, price, category, stock, solde, location, material, dimensions, colors, tags } = req.body;
     const updateData = {};
 
     if (title       !== undefined) updateData.title       = title;
@@ -341,6 +350,24 @@ export const updateProduct = async (req, res) => {
     if (price       !== undefined) updateData.price       = Number(price);
     if (category    !== undefined) updateData.category    = category;
     if (stock       !== undefined) updateData.stock       = Number(stock);
+
+    // New fields
+    if (solde !== undefined) {
+      if (solde !== "" && solde !== null) {
+        updateData.solde = Number(solde);
+      } else {
+        updateData.$unset = { ...(updateData.$unset || {}), solde: 1 };
+      }
+    }
+    if (location !== undefined) updateData.location = location;
+    if (material !== undefined) updateData.material = material;
+    if (dimensions !== undefined) updateData.dimensions = dimensions;
+    if (colors !== undefined) {
+      updateData.colors = typeof colors === 'string' ? colors.split(',').map(c => c.trim()) : colors;
+    }
+    if (tags !== undefined) {
+      updateData.tags = typeof tags === 'string' ? tags.split(',').map(t => t.trim()) : tags;
+    }
 
     updateData.images = images;
 
@@ -353,20 +380,11 @@ export const updateProduct = async (req, res) => {
     const toBool = (v) => v === "true" || v === true;
 
     if (isAdmin) {
-      const { isApproved, isSuspended, isHome, isReported, solde } = req.body;
+      const { isApproved, isSuspended, isHome, isReported } = req.body;
       if (isApproved  !== undefined) updateData.isApproved  = toBool(isApproved);
       if (isSuspended !== undefined) updateData.isSuspended = toBool(isSuspended);
       if (isHome      !== undefined) updateData.isHome      = toBool(isHome);
       if (isReported  !== undefined) updateData.isReported  = toBool(isReported);
-      if (solde !== undefined) {
-        if (solde !== "" && solde !== null) {
-          updateData.solde = Number(solde);
-        } else {
-          unsetFields
-            ? (unsetFields.solde = 1)
-            : (updateData["$unset"] = { solde: 1 });
-        }
-      }
     }
 
     // ── Build Mongoose update ────────────────────────────────────────────────

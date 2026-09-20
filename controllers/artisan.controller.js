@@ -152,6 +152,21 @@ export const upsertMyProfile = async (req, res) => {
       { returnDocument: "after", upsert: true }   // also fixes the mongoose warning
     ).populate("user", "name email image");
 
+    // ── Create notification for admins when artisan updates profile ─────────────
+    const admins = await getAdminUsers();
+    const user = await User.findById(req.user._id).select("name email");
+
+    for (const admin of admins) {
+      await createNotification({
+        recipient: admin._id,
+        type: "artisan_update",
+        title: "Mise à jour Artisan",
+        message: `${user.name} a mis à jour son profil artisan`,
+        relatedId: artisan._id,
+        relatedModel: "ArtisanProfile",
+      });
+    }
+
     res.json(artisan);
   } catch (error) {
     console.error("[upsertMyProfile]", error);
