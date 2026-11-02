@@ -235,10 +235,12 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ message: "title, price and category are required" });
     }
 
-    let images = [];
-    if (req.files?.length) {
-      images = await Promise.all(req.files.map((f) => uploadImage(f)));
+    // At least one image is required
+    if (!req.files?.length) {
+      return res.status(400).json({ message: "Au moins une image est requise." });
     }
+
+    const images = await Promise.all(req.files.map((f) => uploadImage(f)));
 
     const product = await Product.create(
       buildProductDoc({ body: req.body, artisanId: req.user._id, images })
@@ -293,10 +295,12 @@ export const createProductForVendor = async (req, res) => {
       return res.status(400).json({ message: "Target user is not a vendor" });
     }
 
-    let images = [];
-    if (req.files?.length) {
-      images = await Promise.all(req.files.map((f) => uploadImage(f)));
+    // At least one image is required
+    if (!req.files?.length) {
+      return res.status(400).json({ message: "Au moins une image est requise." });
     }
+
+    const images = await Promise.all(req.files.map((f) => uploadImage(f)));
 
     const product = await Product.create(
       buildProductDoc({ body: req.body, artisanId, images })
@@ -339,6 +343,11 @@ export const updateProduct = async (req, res) => {
         ? req.body.images
         : JSON.parse(req.body.images);
       images = incoming.filter((url) => !url.startsWith("blob:"));
+    }
+
+    // A product must always keep at least one image
+    if (!images || images.length === 0) {
+      return res.status(400).json({ message: "Au moins une image est requise." });
     }
 
     // ── Core fields ─────────────────────────────────────────────────────────
